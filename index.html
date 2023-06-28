@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+        integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
+        integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13"
+        crossorigin="anonymous"></script>
+    <style>
+        pre {
+            background-color: #eee;
+            padding: 10px;
+        }
+    </style>
+        <title>FYPO templates</title>
+</head>
+
+<body>
+    <div class="container mx-auto col-6">
+        <h1>FYPO templates</h1>
+        <form class="form-group" id="main-form">
+            <div class="row align-items-center mb-3">
+                <div class="col-auto">
+                    <div id="chebi-loading-message">
+                    <div class="spinner-border text-primary" style="vertical-align: middle;" role="status"><span class="sr-only"></span></div>
+                    <div style="height: 30px; display: inline-block;">Loading imported chebi terms in FYPO</div>
+                    </div>
+                    <label for="fypo-id">Next FYPO ID</label>
+                    <input type="number" class="form-control" id="fypo-id" value="7150">
+                    <label for="curator-id">Curator ID</label>
+                    <input type="text" class="form-control" id="curator-id" value="PomBase:mlr">
+                    <label for="template-type">Template type:</label>
+                    <select class="form-select" id="template-type">
+                        <option value="resistance_chemical">Resistance to chemical</option>
+                        <option value="sensitivity_chemical">Sensitivity to chemical</option>
+                        <option value="increased_nitrogen_source">Increased growth nitrogen source</option>
+                        <option value="decreased_nitrogen_source">Decreased growth nitrogen source</option>
+                        <option value="increased_carbon_source">Increased growth carbon source</option>
+                        <option value="decreased_carbon_source">Decreased growth carbon source</option>
+                        <option value="resistance_two_chemicals">Resistance to two chemicals</option>
+                        <option value="sensitivity_two_chemicals">Sensitivity to two chemicals</option>
+                    </select>
+                    <label for="chebi-id">CHEBI ID (number without zeros, unused in terms with two chemicals)</label>
+                    <input type="number" class="form-control" id="chebi-id" value="45599">
+                    <div id="chebi-import-warning" class="alert alert-warning" role="alert" hidden>This CHEBI term must be added to the imports</div>
+                    <label for="chemical-name">Name of the chemical</label>
+                    <input type="text" class="form-control" id="chemical-name" value="dodecyl hydrogen sulfate">
+                    <label for="chemical-synonyms">Synonyms of the chemical (separated with <code>;</code>, only used in resistance / sensitive)</label>
+                    <input type="text" class="form-control" id="chemical-synonyms" value="SDS">
+                </div>
+            </div>
+            <input id='submit-button' type="submit" class="btn btn-primary m-2" />
+            <button id='clear-button' class="btn btn-secondary m-2">Clear form</button>
+        </form>
+
+        <div>Copy this text in the declaration section</div>
+        <pre><code id="imports-section" style="margin-bottom: 20px;"></code></pre>
+        <div>Copy this text at the bottom of the file, after last term</div>
+        <pre><code id="result"></code></pre>
+    </div>
+    </div>
+</body>
+
+<footer>
+<script>
+
+const chemicalResistanceTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (resistance to $chemical_name$)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "An increased chemical resistance phenotype observed in the vegetative growth phase of the life cycle in which cells grow in the presence of a higher concentration of $chemical_name$ than normal."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistant to $chemical_name$"^^xsd:string)
+$synonyms$
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$ during mitotic cell cycle"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/PATO_0001552> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0000126>)
+`
+const chemicalResistanceSynonymTemplate = `AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $synonym$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistant to $synonym$"^^xsd:string)`
+
+const chemicalSensitivityTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (sensitive to $chemical_name$)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A phenotype observed in the vegetative growth phase of the life cycle in which cells show increased sensitivity to $chemical_name$. Cells stop growing (and may die) at a concentration of $chemical_name$ that allows wild type cells to grow."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "hypersensitive to $chemical_name$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$ during vegetative growth"^^xsd:string)
+$synonyms$
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$ during mitotic cell cycle"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/PATO_0001551> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0000127>)
+`
+
+const chemicalSensitivitySynonymTemplate = `AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitivity to $synonym$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $synonym$"^^xsd:string)`
+
+const nitrogenSourceIncreasedTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (increased cell population growth on $chemical_name$ nitrogen source)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A vegetative cell population phenotype in which cell growth is increased relative to normal in a medium containing $chemical_name$ as the nitrogen source."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasBroadSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased vegetative cell growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:comment <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "Note that cell growth terms refer to growth under aerobic conditions unless stated otherwise."^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased cell population growth on $chemical_name$ nitrogen source"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/FYPO_0003937> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/GOREL_0000001> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/BTO_0000316>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002573> <http://purl.obolibrary.org/obo/PATO_0000467>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0004557>)
+`
+
+const nitrogenSourceDecreasedTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (decreased cell population growth on $chemical_name$ nitrogen source)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A vegetative cell population growth phenotype in which cell growth is decreased relative to normal in a medium containing $chemical_name$ as the nitrogen source."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasBroadSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased vegetative cell growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasNarrowSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "slow cell growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "growth defect, slow growth with $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "reduced cell growth on $chemical_name$ nitrogen source"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:comment <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "Note that cell growth terms refer to growth under aerobic conditions unless stated otherwise."^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased cell population growth on $chemical_name$ nitrogen source"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/FYPO_0000046> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/GOREL_0000001> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/BTO_0000316>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002573> <http://purl.obolibrary.org/obo/PATO_0000467>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0001355>)
+`
+
+const carbonSourceIncreasedTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (increased cell population growth on $chemical_name$ carbon source)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A vegetative cell population growth phenotype in which cell growth is increased relative to normal in a medium containing $chemical_name$ as the carbon source."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasBroadSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased vegetative cell growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:comment <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "Note that cell growth terms refer to growth under aerobic conditions unless stated otherwise."^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "increased cell population growth on $chemical_name$ carbon source"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/FYPO_0003937> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/GOREL_0000001> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/BTO_0000316>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002573> <http://purl.obolibrary.org/obo/PATO_0000467>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0004557>)
+`
+
+const carbonSourceDecreasedTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (decreased cell population growth on $chemical_name$ carbon source)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A vegetative cell population growth phenotype in which cell growth is decreased relative to normal in a medium containing $chemical_name$ as the carbon source."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasBroadSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased vegetative cell growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasNarrowSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "slow cell growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "reduced cell growth on $chemical_name$ carbon source"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:comment <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "Note that cell growth terms refer to growth under aerobic conditions unless stated otherwise."^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "decreased cell population growth on $chemical_name$ carbon source"^^xsd:string)
+EquivalentClasses(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/BFO_0000051> ObjectIntersectionOf(<http://purl.obolibrary.org/obo/FYPO_0000046> ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/GOREL_0000001> <http://purl.obolibrary.org/obo/GO_0072690>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0000052> <http://purl.obolibrary.org/obo/BTO_0000316>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002503> <http://purl.obolibrary.org/obo/CHEBI_$chebi_id_number$>) ObjectSomeValuesFrom(<http://purl.obolibrary.org/obo/RO_0002573> <http://purl.obolibrary.org/obo/PATO_0000467>))))
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0001355>)
+`
+
+const resistanceTwoChemicalsTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (resistance to $chemical_name$)
+
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) <http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "An increased chemical resistance phenotype observed in the vegetative growth phase of the life cycle in which cells grow in the presence of higher concentrations of $chemical_name$ than normal."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$ in combination"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistant to $chemical_name$"^^xsd:string)
+$synonyms$
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasRelatedSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$ during mitotic cell cycle"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $chemical_name$"^^xsd:string)
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0000126>)
+`
+const resistanceTwoChemicalsSynonymTemplate = `AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $synonym$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $synonym$ in combination"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistant to $synonym$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "resistance to $synonym$"^^xsd:string)
+`
+
+const sensitivityTwoChemicalsTemplate = `
+# Class: <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> (sensitive to $chemical_name$)
+
+AnnotationAssertion(<http://purl.obolibrary.org/obo/IAO_0000115> <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "A phenotype observed in the vegetative growth phase of the life cycle in which cells show increased sensitivity to a combination of $chemical_name$. Cells stop growing (and may die) at concentrations of $chemical_name$ that allow wild type cells to grow."^^xsd:string)
+AnnotationAssertion(oboInOwl:created_by <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$curator_id$"^^xsd:string)
+AnnotationAssertion(oboInOwl:creation_date <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "$iso_time$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$ in combination"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "hypersensitive to $chemical_name$"^^xsd:string)
+$synonyms$
+AnnotationAssertion(oboInOwl:hasOBONamespace <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "fission_yeast_phenotype"^^xsd:string)
+AnnotationAssertion(oboInOwl:id <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "FYPO:$fypo_id_number$"^^xsd:string)
+AnnotationAssertion(rdfs:label <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $chemical_name$"^^xsd:string)
+SubClassOf(<http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> <http://purl.obolibrary.org/obo/FYPO_0000127>)
+`
+const sensitivityTwoChemicalsSynonymTemplate = `AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $synonym$ during vegetative growth"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $synonym$ in combination"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "hypersensitive to $synonym$"^^xsd:string)
+AnnotationAssertion(Annotation(oboInOwl:hasDbXref "$curator_id$"^^xsd:string) oboInOwl:hasExactSynonym <http://purl.obolibrary.org/obo/FYPO_$fypo_id_number$> "sensitive to $synonym$"^^xsd:string)
+`
+
+
+function populateTemplate(parameters, template, synonymsTemplate){
+
+    let synonyms = ''
+
+    synonyms = synonyms + parameters.chemicalSynonyms.filter(s => s !== '').map(synonym => synonymsTemplate
+        .replace(/\$fypo_id_number\$/g, parameters.fypoId)
+        .replace(/\$curator_id\$/g, parameters.curatorId)
+        .replace(/\$synonym\$/g, synonym)
+    ).join('\n')
+
+    console.log(synonyms)
+
+    return template
+        .replace(/\$fypo_id_number\$/g, parameters.fypoId)
+        .replace(/\$chemical_name\$/g, parameters.chemicalName)
+        .replace(/\$chebi_id_number\$/g, parameters.chebiId)
+        .replace(/\$curator_id\$/g, parameters.curatorId)
+        .replace(/\$iso_time\$/g, new Date().toISOString())
+        .replace(/\$synonyms\$\n/g, synonyms)
+}
+
+function formatIntegerString(value, length) {
+    if (value.length >= length) {
+        return value
+    }
+    return formatIntegerString("0" + value, length)
+}
+
+function clickFunction(e) {
+        e.preventDefault()
+        const parameters = {
+            // fypo id formatted as %7i
+            fypoId : formatIntegerString(document.getElementById("fypo-id").value, 7),
+            curatorId : document.getElementById("curator-id").value,
+            templateType : document.getElementById("template-type").value,
+            chebiId : document.getElementById("chebi-id").value,
+            chemicalName : document.getElementById("chemical-name").value,
+            chemicalSynonyms : document.getElementById("chemical-synonyms").value.split(";"),
+        }
+        // check that none is empty (chemicalSynonyms is optional)
+        if (Object.values(parameters).some(x => x === '')) {
+            alert('Please fill in all the fields')
+            return
+        }
+        let text = ''
+        if (parameters.templateType == 'resistance_chemical') {
+            text = populateTemplate(parameters, chemicalResistanceTemplate, chemicalResistanceSynonymTemplate)
+        }
+        else if (parameters.templateType == 'sensitivity_chemical') {
+            text = populateTemplate(parameters, chemicalSensitivityTemplate, chemicalResistanceSynonymTemplate)
+        }
+        else if (parameters.templateType == 'increased_nitrogen_source') {
+            text = populateTemplate(parameters, nitrogenSourceIncreasedTemplate, '')
+        }
+        else if (parameters.templateType == 'decreased_nitrogen_source') {
+            text = populateTemplate(parameters, nitrogenSourceDecreasedTemplate, '')
+        }
+        else if (parameters.templateType == 'increased_carbon_source') {
+            text = populateTemplate(parameters, carbonSourceIncreasedTemplate, '')
+        }
+        else if (parameters.templateType == 'decreased_carbon_source') {
+            text = populateTemplate(parameters, carbonSourceDecreasedTemplate, '')
+        }
+        else if (parameters.templateType == 'resistance_two_chemicals') {
+            text = populateTemplate(parameters, resistanceTwoChemicalsTemplate, resistanceTwoChemicalsSynonymTemplate)
+        }
+        else if (parameters.templateType == 'sensitivity_two_chemicals') {
+            text = populateTemplate(parameters, sensitivityTwoChemicalsTemplate, sensitivityTwoChemicalsSynonymTemplate)
+        }
+
+        document.getElementById("result").innerText = document.getElementById("result").innerText + text
+        document.getElementById("imports-section").innerText = document.getElementById("imports-section").innerText + `Declaration(Class(<http://purl.obolibrary.org/obo/FYPO_${parameters.fypoId}>))\n`
+        // Increase the FYPO ID by 1
+        document.getElementById("fypo-id").value = parseInt(parameters.fypoId) + 1
+    }
+
+function clearForm(e)
+{
+    e.preventDefault()
+    // Clear the chemical name and synonyms and chebi id
+    document.getElementById("chemical-name").value = ''
+    document.getElementById("chemical-synonyms").value = ''
+    document.getElementById("chebi-id").value = ''
+}
+
+var chebiTerms = new Set()
+
+async function updateChebiTerms()
+{
+    const resp = await fetch('https://raw.githubusercontent.com/pombase/fypo/master/src/ontology/imports/merged_import.owl')
+    // Read the file line by line
+    const text = await resp.text()
+    const lines = text.split('\n')
+    let readingChebi = false
+    for (const line of lines) {
+        if (line.startsWith('Declaration(Class(<http://purl.obolibrary.org/obo/CHEBI_')) {
+            readingChebi = true
+            const chebiId = line.split('CHEBI_')[1].split('>')[0]
+            chebiTerms.add(chebiId)
+        }
+        else if (! line.startsWith('Declaration') && readingChebi) {
+            // Delete chebi loading bar
+            document.getElementById("chebi-loading-message").style.display = 'none'
+            console.log(chebiTerms)
+            break
+        }
+    }
+}
+
+function checkIfInChebiImports(e)
+{
+    console.log(e.target.value, chebiTerms.has(e.target.value))
+    chebiTerms.has(e.target.value) ? document.getElementById("chebi-import-warning").hidden = true : document.getElementById("chebi-import-warning").hidden = false
+}
+
+
+window.onload = () => {
+    document.getElementById("main-form").addEventListener("submit", clickFunction)
+    document.getElementById("clear-button").addEventListener("click", clearForm)
+    document.getElementById("chebi-id").addEventListener("change", checkIfInChebiImports)
+    updateChebiTerms()
+};
+</script>
+</footer>
+
+</html>
